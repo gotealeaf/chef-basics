@@ -7,9 +7,14 @@ end
   package pkg
 end
 
-# Deployer user
+# Deployer user, sudoer and with known RSA keys
 user_account 'deployer' do
   create_group true
+end
+group "sudo" do
+  action :modify
+  members "deployer"
+  append true
 end
 cookbook_file "id_rsa" do
   source "id_rsa"
@@ -27,9 +32,31 @@ cookbook_file "id_rsa.pub" do
   mode 0644
   action :create_if_missing
 end
+
+# Allow sudo command without password for sudoers
+cookbook_file "sudo_without_password" do
+  source "sudo_without_password"
+  path "/etc/sudoers.d/sudo_without_password"
+  group "root"
+  owner "root"
+  mode 0440
+  action :create_if_missing
+end
+
+# Authorize yourself to connect to server
+cookbook_file "authorized_keys" do
+  source "authorized_keys"
+  path "/home/deployer/.ssh/authorized_keys"
+  group "deployer"
+  owner "deployer"
+  mode 0600
+  action :create
+end
+
+# Add Github as known host
 ssh_known_hosts_entry 'github.com'
 
-# Ruby Version
+# Install Ruby Version
 include_recipe 'ruby_build'
 
 ruby_build_ruby '2.1.2'
@@ -42,7 +69,7 @@ gem_package 'bundler' do
   options '--no-ri --no-rdoc'
 end
 
-# Rails Application
+# Install Rails Application
 include_recipe "runit"
 application 'capistrano-first-steps' do
   owner 'deployer'
